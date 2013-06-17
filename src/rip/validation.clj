@@ -125,7 +125,7 @@
            {:keys [value errors valid?]}
            (validate-field field field-value)]
        (if valid?
-         (if-not (blank? field)
+         (if-not (blank? value)
            (update-in validation [:value] assoc name value)
            validation)
          (-> validation
