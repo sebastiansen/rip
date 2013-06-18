@@ -1,6 +1,6 @@
 RIP
 ===
-[![Build Status](https://travis-ci.org/sebastiasen/rip.png?branch=master)](https://travis-ci.org/sebastiansen/rip)
+[![Build Status](https://travis-ci.org/sebastiansen/rip.png?branch=master)](https://travis-ci.org/sebastiansen/rip)
 
 REST in Peace is a library for RESTful APIs built on top of compojure with some korma utilities.
 
@@ -41,9 +41,9 @@ Add the following dependency to your `project.clj` file:
 
    ;; Obtain paths for actions
    (GET* :paths []
-         (str (path-for api [:home])
+         (str (path-for :api [:home])
               " and "
-              (path-for api [:about]))
+              (path-for :api [:about]))
          ;;=> /api and /api/about
          ))
 
@@ -66,7 +66,7 @@ Add the following dependency to your `project.clj` file:
     ;; Obtain links
     (show [id]
           (str {:links
-                {:change (link-for api [:users :change] id)}}))
+                {:change (link-for :api [:users :change] id)}}))
     ;; => {:links {:change {:method "PUT" :href "/api/users/{user id}"}}}
 
     ;; Include other actions with default /:id path
@@ -86,8 +86,11 @@ Add the following dependency to your `project.clj` file:
 
 ;; Generate handler
 (defroutes app
-  (route-for home)
-  (route-for api))
+  (routes-for
+  ;; Generates a compojure route, and also will bind *routes*
+  ;; for path-for and link-for functions
+    home
+    api))
 ```
 ## Validations
 ```clojure
