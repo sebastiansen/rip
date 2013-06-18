@@ -22,10 +22,14 @@
 
 ;; Validators
 
-(tower/set-config! [:dictionary :en :errors :messages]
-                   {:required     "Can't be blank"
-                    :invalid-type "Invalid type"
-                    :constraints  "Invalid"})
+(tower/merge-config!
+ {:dictionary
+  {:en
+   {:errors
+    {:messages
+     {:required     "Can't be blank"
+      :invalid-type "Invalid type"
+      :constraints  "Invalid"}}}}})
 
 (defn- blank?
   [value]
