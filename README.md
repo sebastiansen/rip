@@ -1,6 +1,6 @@
 RIP
 ===
-[![Build Status](https://travis-ci.org/acidlabs/rip.png?branch=master)](https://travis-ci.org/acidlabs/rip)
+[![Build Status](https://travis-ci.org/sebastiasen/rip.png?branch=master)](https://travis-ci.org/sebastiansen/rip)
 
 REST in Peace is a library for RESTful APIs built on top of compojure with some korma utilities.
 
@@ -120,12 +120,12 @@ Add the following dependency to your `project.clj` file:
   (validates
    (fn [user] (= (:password user) (:password-confirmation user)))
    "Password confirmation doesn't match confirmation")
-   
-  ;; Nest validators
-  (nest-one :profile
-    (validator
-      (field :description)))
-  (nest-many :))
+  
+  ;; Add more constraints to fields
+  (constraint :name required)
+  
+  ;; Set required fields
+  (required-fields [:password :password-confirmation]))
    
 ;; Validate using the if-valid  macro to simplify evaluation
 (if-valid (validate user {:email "sebastian@rip.com"})
