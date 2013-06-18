@@ -7,7 +7,8 @@
                  [hiccup "1.0.3"]
                  [clout "1.1.0"]
                  [ring/ring-core "1.1.8"]
-                 [com.twinql.clojure/clj-conneg "1.1.0"]]
+                 [com.twinql.clojure/clj-conneg "1.1.0"]
+                 [com.taoensso/tower "1.7.1"]]
   :profiles {:dev {:dependencies
                    [[korma "0.3.0-RC5"]
                     [http-kit "2.0.1"  :exclusions [org.clojure/clojure]]

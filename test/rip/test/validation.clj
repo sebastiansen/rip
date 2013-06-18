@@ -1,46 +1,78 @@
 (ns rip.test.validation
   (:use rip.validation
         korma.core
-        clojure.test))
+        clojure.test)
+  (:require [taoensso.tower :as tower]))
 
 (defvalidator user
   (field :name required)
   (field :age
          (type-of :int)
          required
-         (validates (min-val 10) {:message "must be 10 least"}))
+         (validates (min-val 10) {:message "must be 10 at least"}))
   (field :token (type-of :uuid))
-  (field :email (validates (fn [])))
+  (field :email (validates
+                 (fn [email]
+                   (boolean
+                    (re-matches
+                     #"^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,4}$"
+                     email)))
+                 (fn [email] (format "%s is not a valid email" email))))
   (field :password)
   (field :password-confirmation)
+  (field :description)
+  (field :status)
   (validates
    (fn [{:keys [password password-confirmation]}]
      (= password password-confirmation))
-   "Password confirmation doesn't match confirmation"))
-
-(validate user {:name "hola" :age 14 :password "123" :password-confirmation "1234"})
+   {:field   :password-confirmation
+    :message "Password confirmation doesn't match confirmation"})
+  (constraint :description (validates (max-size 20)))
+  (required-fields [:status]))
 
 (deftest test-schema-fields
   (are [a b] (= a b)
        (:valid? (validate user {:name "123" :age "123" :token "1-1-1-1-1"}))
-       true
-       (first (:errors (validate user {:name "123" :age "123" :token "1-1-1-1-"})))
-       (assoc *invalid-type-error* :field :token)
+       false
+
+       (first (:errors (validate user {:name "123" :age "123" :token "1-1-1-1-" :status "hi"})))
+       {:field :token :message "Invalid type"}
+
+       (first (:errors (validate user {:age "123" :status "hi"})))
+       {:field :name :message "Can't be blank"}
+
        (first (:errors (validate user {:age "123"})))
-       (assoc *required-error* :field :name)))
+       {:field :status :message "Can't be blank"}
+
+       (first (:errors (validate user {:age 3 :status "hi"})))
+       {:field :age :message "must be 10 at least"}
+
+       (first (:errors (validate user {:password "123" :password-confirmation "1234"})))
+       {:field   :password-confirmation
+        :message "Password confirmation doesn't match confirmation"}
+
+       (first (:errors (validate user {:age 10 :name "123" :email "asdf" :status "hi"})))
+       {:field   :email
+        :message "asdf is not a valid email"}))
 
 (deftest test-if-valid
   (are [a b] (= a b)
-       (if-valid (validate user {:name "123" :age 123})
+       (if-valid (validate user {:name "123" :age 123 :status "hi"})
                   [value]
                   value)
-       {:name "123" :age 123}
+       {:name "123"  :status "hi" :age 123}
+
        (if-valid (validate user {:age 123 :token "1"})
-                  [value errors]
-                  value
-                  errors)
-       '({:field :token, :message "Invalid format"}
-         {:field :name, :message "Required"})))
+                 [value errors]
+                 value
+                 errors)
+       '({:field :status :message "Can't be blank"}
+         {:field :token :message "Invalid type"}
+         {:field :name :message "Can't be blank"})))
+
+;; (deftest test-other-validations
+;;   (are [a b] (= a b)
+;;        ()))
 
 ;; (defn query
 ;;   [[_ f] & [ent]]

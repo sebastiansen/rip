@@ -5,13 +5,8 @@
         korma.core
         korma.db
         rip.db)
-  (:require [clojure.string :as st]))
-
-(def ^:dynamic *invalid-type-error* {:message "Invalid format"})
-
-(def ^:dynamic *required-error* {:message "Required"})
-
-(def ^:dynamic *default-messages* {})
+  (:require [clojure.string :as st]
+            [taoensso.tower :as tower]))
 
 ;; Collections and strings constraints
 
@@ -25,10 +20,26 @@
 (defn max-val [max] (fn [val] (<= val max)))
 (defn range-val [min max] (fn [val] (or (>= val min) (<= val max))))
 
-(defn blank?
+;; Validators
+
+(tower/set-config! [:dictionary :en :errors :messages]
+                   {:required     "Can't be blank"
+                    :invalid-type "Invalid type"
+                    :constraints  "Invalid"})
+
+(defn- blank?
   [value]
   (or (nil? value)
       (and (string? value) (empty? value))))
+
+(defn- make-error
+  [error value default]
+  (cond
+   (string? error) {:message error}
+   (map? error) error
+   (fn? error) (let [error (error value)]
+                 (make-error error value default))
+   :else default))
 
 (defn validator*
   []
@@ -47,11 +58,11 @@
 
 (defn validates
   [val f & [error]]
-  (let [error (if error
-                (cond
-                 (string? error) {:message error}
-                 (map? error) error)
-                {:message "Invalid"})]
+  (let [error (fn [value]
+                (make-error
+                 error
+                 value
+                 (tower/t :errors.messages/constraints)))]
     (update-in val [:constraints] conj [f error])))
 
 (defn field*
@@ -70,6 +81,14 @@
   `(field* ~validator ~name
            (-> (make-field ~name)
                ~@body)))
+
+(defmacro constraint
+  [validator name & body]
+  `(update-in ~validator
+              [:fields ~name]
+              (fn [field#]
+                (-> field#
+                    ~@body))))
 
 (def parsers
   {:int        #(Integer/parseInt %)
@@ -99,8 +118,17 @@
   [field]
   (assoc field :required? true))
 
+(defn required-fields
+  [validator fields]
+  (reduce
+   (fn [validator field]
+     (constraint validator field required))
+   validator
+   fields))
+
 (defn validate-field
-  [{:keys [parser required? constraints] :as field} value]
+  [{:keys [required-error invalid-type-error]}
+   {:keys [parser required? constraints] :as field} value]
   (if-not (blank? value)
     (if-let [value (if parser (parser value) value)]
       (reduce
@@ -109,12 +137,24 @@
            validation
            (-> validation
                (assoc :valid? false)
-               (update-in [:errors] conj error))))
+               (update-in [:errors] conj (error value)))))
        {:valid? true :value value :errors []}
        constraints)
-      {:valid? false :errors [*invalid-type-error*]})
+      {:valid? false
+       :errors [(make-error
+                 invalid-type-error
+                 value
+                 {:message
+                  (tower/t
+                   :errors.messages/invalid-type)})]})
     (if required?
-      {:valid? false :errors [*required-error*]}
+      {:valid? false
+       :errors [(make-error
+                 required-error
+                 value
+                 {:message
+                  (tower/t
+                   :errors.messages/required)})]}
       {:valid? true})))
 
 (defn validate-fields
@@ -123,7 +163,7 @@
    (fn [validation [name field]]
      (let [field-value (name value)
            {:keys [value errors valid?]}
-           (validate-field field field-value)]
+           (validate-field validator field field-value)]
        (if valid?
          (if-not (blank? value)
            (update-in validation [:value] assoc name value)
@@ -145,7 +185,7 @@
              validation
              (-> validation
                  (assoc :valid? false)
-                 (update-in [:errors] conj error))))
+                 (update-in [:errors] conj (error value)))))
          fields-validation
          (:constraints validator)))))
 
