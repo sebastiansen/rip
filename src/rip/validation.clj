@@ -8,6 +8,10 @@
   (:require [clojure.string :as st]
             [taoensso.tower :as tower]))
 
+(declare validate)
+
+(def ^:dynamic *scope* nil)
+
 ;; Collections and strings constraints
 
 (defn min-size [min] (fn [val] (>= (count val) min)))
@@ -19,6 +23,22 @@
 (defn min-val [min] (fn [val] (>= val min)))
 (defn max-val [max] (fn [val] (<= val max)))
 (defn range-val [min max] (fn [val] (or (>= val min) (<= val max))))
+
+
+(def parsers
+  {:int        #(Integer/parseInt %)
+   :double     #(Double/parseDouble %)
+   :float      #(Float/parseFloat %)
+   :boolean    #(Boolean/parseBoolean %)
+   :long       #(Long/parseLong %)
+   :bigint     #(BigInteger. %)
+   :bigdecimal #(BigDecimal. %)
+   :uuid       #(java.util.UUID/fromString %)})
+
+(defn- make-parser
+  [parser]
+  (fn [value]
+    (try (parser (str value)) (catch Exception e nil))))
 
 ;; Validators
 
@@ -47,8 +67,8 @@
 
 (defn validator*
   []
-  {:fields {}
-   :nested []
+  {:fields      {}
+   :assocs      {}
    :constraints []})
 
 (defmacro validator
@@ -94,21 +114,6 @@
                 (-> field#
                     ~@body))))
 
-(def parsers
-  {:int        #(Integer/parseInt %)
-   :double     #(Double/parseDouble %)
-   :float      #(Float/parseFloat %)
-   :boolean    #(Boolean/parseBoolean %)
-   :long       #(Long/parseLong %)
-   :bigint     #(BigInteger. %)
-   :bigdecimal #(BigDecimal. %)
-   :uuid       #(java.util.UUID/fromString %)})
-
-(defn- make-parser
-  [parser]
-  (fn [value]
-    (try (parser (str value)) (catch Exception e nil))))
-
 (defn type-of
   [field type]
   (assoc field
@@ -130,7 +135,38 @@
    validator
    fields))
 
-(defn validate-field
+(defn assoc-one
+  [validator name validator* & [required?]]
+  (assoc-in
+   validator
+   [:assocs name]
+   {:rel :one :validator validator* :required? (boolean required?)}))
+
+(defn assoc-many
+  [validator name validator* & [required?]]
+  (assoc-in
+   validator
+   [:assocs name]
+   {:rel :many :validator validator* :required? (boolean required?)}))
+
+;;
+
+(defn- merge-validations
+  [val1 val2 & [multi?]]
+  {:valid? (and (:valid? val1) (:valid? val2))
+   :value  ((if multi? conj merge) (:value val1) (:value val2))
+   :errors (concat (:errors val1) (:errors val2))})
+
+(defn- default-error
+  [error value type]
+  (make-error
+   error
+   value
+   {:message
+    (tower/t
+     (keyword (str "errors.messages/" (name type))))}))
+
+(defn- validate-field
   [{:keys [required-error invalid-type-error]}
    {:keys [parser required? constraints] :as field} value]
   (if-not (blank? value)
@@ -145,44 +181,111 @@
        {:valid? true :value value :errors []}
        constraints)
       {:valid? false
-       :errors [(make-error
-                 invalid-type-error
-                 value
-                 {:message
-                  (tower/t
-                   :errors.messages/invalid-type)})]})
+       :errors [(default-error invalid-type-error value :invalid-type)]})
     (if required?
       {:valid? false
-       :errors [(make-error
-                 required-error
-                 value
-                 {:message
-                  (tower/t
-                   :errors.messages/required)})]}
+       :errors [(default-error required-error value :required)]}
       {:valid? true})))
 
-(defn validate-fields
+(defn- field-errors
+  [errors field-name]
+  (let [field-name (if *scope*
+                     (keyword (str *scope* "." (name field-name)))
+                     field-name)]
+    (map (fn [v] (assoc v :field field-name)) errors)))
+
+(defn- validate-fields
   [validator value]
   (reduce
-   (fn [validation [name field]]
-     (let [field-value (name value)
+   (fn [validation [field-name field]]
+     (let [field-value (field-name value)
            {:keys [value errors valid?]}
            (validate-field validator field field-value)]
        (if valid?
          (if-not (blank? value)
-           (update-in validation [:value] assoc name value)
+           (update-in validation [:value] assoc field-name value)
            validation)
          (-> validation
              (assoc :valid? false)
-             (update-in [:errors]
-                        concat
-                        (map #(assoc % :field name) errors))))))
+             (update-in
+              [:errors]
+              concat
+              (field-errors errors field-name))))))
    {:value value :valid? true :errors []}
    (:fields validator)))
 
+(defn- make-scope
+  [rel-name]
+  (if *scope*
+    (str *scope* "." (name rel-name))
+    (name rel-name)))
+
+(defn- validate-many
+  [validator value rel-name]
+  (let [scope      (make-scope rel-name)
+        [_ validation] (reduce
+                        (fn [[i validation] value]
+                          [(inc i)
+                           (merge-validations
+                            validation
+                            (binding [*scope* (str scope "." i)]
+                              (validate validator value))
+                            true)])
+                        [0 {:valid? true :value [] :errors []}]
+                        value)]
+    (assoc validation :value {rel-name (:value validation)})))
+
+(defn- validate-one
+  [validator value rel-name]
+  (binding [*scope* (make-scope rel-name)]
+    (let [validation (validate validator value)]
+      (assoc validation :value {rel-name (:value validation)}))))
+
+(defn invalid-nested-type-error
+  [rel-name]
+  {:valid? false
+   :value  {}
+   :errors [{:field   rel-name
+             :message (tower/t :errors.messages/invalid-type)}]})
+
+(defn- validate-nested
+  [validation rel-name rel validator value]
+  (-> (case rel
+        :one
+        (if (map? value)
+          (validate-one validator value rel-name)
+          (invalid-nested-type-error rel-name))
+        :many
+        (if (sequential? value)
+          (validate-many validator value rel-name)
+          (invalid-nested-type-error rel-name)))
+      (merge-validations validation)))
+
+(defn- validate-nested-fields
+  [{:keys [assocs required-error invalid-type-error]} value]
+  (reduce
+   (fn [validation [name {:keys [rel validator required?]}]]
+     (let [nested (value name)]
+       (if (and (coll? nested) (not-empty nested))
+         (validate-nested validation name rel validator nested)
+         (if required?
+           (-> validation
+               (assoc :valid? false)
+               (update-in
+                :errors
+                conj
+                (default-error required-error value :required)))
+           validation))))
+   {:valid? true :value value :errors []}
+   assocs))
+
+;; Validation
+
 (defn validate
   [validator value]
-  (let [fields-validation (validate-fields validator value)]
+  (let [validation (merge-validations
+                    (validate-fields validator value)
+                    (validate-nested-fields validator value))]
     (-> (reduce
          (fn [validation [pred error]]
            (if (pred value)
@@ -190,7 +293,7 @@
              (-> validation
                  (assoc :valid? false)
                  (update-in [:errors] conj (error value)))))
-         fields-validation
+         validation
          (:constraints validator)))))
 
 (defmacro if-valid
@@ -205,34 +308,6 @@
         (if (:valid? ~result)
           ~then
           ~else))))
-
-;; (defn nest-one
-;;   [name validator & [required?]]
-;;   (assoc-in
-;;    [:nested name]
-;;    {:rel :one :validator validator :required? (boolean required?)}))
-
-;; (defn nest-many
-;;   [name validator & [required?]]
-;;   (assoc-in
-;;    [:nested name]
-;;    {:rel :many :validator validator :required? (boolean required?)}))
-
-;; (defn validate-nested
-;;   [validator value]
-;;   (reduce
-;;    (fn [validation [name {:keys [rel validator required?] :as validator}]]
-;;      (if-let [value (not-empty (value name))]
-;;        (if (= rel :one)
-;;          ()
-;;          ())
-;;        (if required?
-;;          (-> validation
-;;              (assoc :valid? false)
-;;              (update-in :errors conj (assoc *required-error* :relation name)))
-;;          validation)))
-;;    {:valid? true :value value :errors []}
-;;    (:nested validator)))
 
 ;; Filter validation
 

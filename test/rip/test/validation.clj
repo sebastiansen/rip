@@ -28,7 +28,13 @@
    {:field   :password-confirmation
     :message "Password confirmation doesn't match confirmation"})
   (constraint :description (validates (max-size 20)))
-  (required-fields [:status]))
+  (required-fields [:status])
+  (assoc-one
+   :address
+   (validator
+    (field :street required)
+    (assoc-one :city (validator (field :name required)))))
+  (assoc-many :documents (validator (field :name required))))
 
 (deftest test-schema-fields
   (are [a b] (= a b)
@@ -69,6 +75,25 @@
        '({:field :status :message "Can't be blank"}
          {:field :token :message "Invalid type"}
          {:field :name :message "Can't be blank"})))
+
+(deftest test-nested
+  (are [a b] (= a b)
+       (:errors (validate user {:address {:street ""}
+                                :status "123"
+                                :age "123"
+                                :name "123"}))
+       '({:field :address.street :message "Can't be blank"})
+       (:errors (validate user {:address {:street "asd"
+                                          :city {:hola "dsfds"}}
+                                :status "123"
+                                :age "123"
+                                :name "123"}))
+       '({:field :address.city.name :message "Can't be blank"})
+       (:errors (validate user {:documents [{:name "sdfs"} {:name ""}]
+                                :status "123"
+                                :age "123"
+                                :name "123"}))
+       '({:field :documents.1.name :message "Can't be blank"})))
 
 ;; (deftest test-other-validations
 ;;   (are [a b] (= a b)
