@@ -136,18 +136,24 @@
    fields))
 
 (defn assoc-one
-  [validator name validator* & [required?]]
+  [validator name validator* & [{:keys [required? item-name]}]]
   (assoc-in
    validator
    [:assocs name]
-   {:rel :one :validator validator* :required? (boolean required?)}))
+   {:rel       :one
+    :validator validator*
+    :required? (boolean required?)
+    :item-name item-name}))
 
 (defn assoc-many
-  [validator name validator* & [required?]]
+  [validator name validator* & [{:keys [required? item-name]}]]
   (assoc-in
    validator
    [:assocs name]
-   {:rel :many :validator validator* :required? (boolean required?)}))
+   {:rel       :many
+    :validator validator*
+    :required? (boolean required?)
+    :item-name item-name}))
 
 ;;
 
