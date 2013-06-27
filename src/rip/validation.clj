@@ -217,7 +217,7 @@
               [:errors]
               concat
               (field-errors errors field-name))))))
-   {:value value :valid? true :errors []}
+   {:value {} :valid? true :errors []}
    (:fields validator)))
 
 (defn- make-scope
@@ -282,7 +282,7 @@
                 conj
                 (default-error required-error value :required)))
            validation))))
-   {:valid? true :value value :errors []}
+   {:valid? true :value {} :errors []}
    assocs))
 
 ;; Validation
