@@ -1,6 +1,6 @@
 (ns rip.core
   "Provides a resources abstraction."
-  (:use compojure.core
+  (:use [compojure.core :only (let-request make-route routes)]
         hiccup.util
         clout.core)
   (:require [clojure.string :as st]))
@@ -121,66 +121,66 @@
       (route* name path method handler)
       opts))))
 
-(defmacro GET*
+(defmacro GET
   [scope opts & body]
   `(action ~scope ~opts :get (h ~@body)))
 
-(defmacro POST*
+(defmacro POST
   [scope opts & body]
   `(action ~scope ~opts :post (h ~@body)))
 
-(defmacro PUT*
+(defmacro PUT
   [scope opts & body]
   `(action ~scope ~opts :put (h ~@body)))
 
-(defmacro DELETE*
+(defmacro DELETE
   [scope opts & body]
   `(action ~scope ~opts :delete (h ~@body)))
 
-(defmacro HEAD*
+(defmacro HEAD
   [scope opts & body]
   `(action ~scope ~opts :head (h ~@body)))
 
-(defmacro PATCH*
+(defmacro PATCH
   [scope opts & body]
   `(action ~scope ~opts :patch (h ~@body)))
 
-(defmacro OPTIONS*
+(defmacro OPTIONS
   [scope opts & body]
   `(action ~scope ~opts :options (h ~@body)))
 
-(defmacro ANY*
+(defmacro ANY
   [scope opts & body]
   `(action ~scope ~opts :any (h ~@body)))
 
 (defmacro index
   [scope & body]
-  `(GET* ~scope :index ~@body))
+  `(GET ~scope :index ~@body))
 
 (defmacro make
   [scope & body]
-  `(POST* ~scope :make ~@body))
+  `(POST ~scope :make ~@body))
 
 (defmacro show
   [scope & body]
-  `(GET* ~scope {:name :show :path "/:id"} ~@body))
+  `(GET ~scope {:name :show :path "/:id"} ~@body))
 
 (defmacro change
   [scope & body]
-  `(PUT* ~scope {:name :change :path "/:id"} ~@body))
+  `(PUT ~scope {:name :change :path "/:id"} ~@body))
 
 (defmacro destroy
   [scope & body]
-  `(DELTE* ~scope {:name :destroy :path "/:id"} ~@body))
+  `(DELETE ~scope {:name :destroy :path "/:id"} ~@body))
 
 ;; Other
 
 (defn wrap
-  [scope name actions wrapper]
+  [scope wrapper & [{:keys [name actions]}]]
   (update-in scope [:middleware] conj [name actions wrapper]))
 
 (defn before-wrap
-  [scope before name actions wrapper]
+  [scope before wrapper & [{:keys [name actions]}]]
   (assoc scope
     :middleware
     (reduce
@@ -192,7 +192,7 @@
      (:middleware scope))))
 
 (defn after-wrap
-  [scope after name actions wrapper]
+  [scope after wrapper & [{:keys [name actions]}]]
   (assoc scope
     :middleware
     (reduce
