@@ -3,8 +3,7 @@
   (:import rip.RipException)
   (:use korma.sql.fns
         korma.core
-        korma.db
-        rip.db)
+        korma.db)
   (:require [clojure.string :as st]
             [taoensso.tower :as tower]))
 
@@ -64,7 +63,7 @@
                  (make-error error value default))
    :else default))
 
-(defn- validator*
+(defn validator*
   []
   {:fields      {}
    :assocs      {}
@@ -81,11 +80,11 @@
   [name & body]
   `(def ~name (validator ~@body)))
 
-(defn- field*
+(defn field*
   [validator name field]
   (assoc-in validator [:fields name] field))
 
-(defn- make-field
+(defn make-field
   [name]
   {:name        name
    :parser      identity
@@ -166,8 +165,7 @@ Usage:
    [:assocs name]
    {:rel       :one
     :validator validator*
-    :required? (boolean required?)
-    :item-name item-name}))
+    :required? (boolean required)}))
 
 (defn assoc-many
   "Associate a nested validator for a list.

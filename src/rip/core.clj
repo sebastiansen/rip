@@ -23,7 +23,7 @@
      (fn [request#]
        (let-request [~bindings request#] ~@body))))
 
-(defn- route*
+(defn route*
   [name path method handler]
   {:handler handler
    :name    name
@@ -39,7 +39,7 @@ Usage:
   `(def ~route-name
      (route* ~(keyword (name route-name)) ~path ~method (h ~args ~@body))))
 
-(defn- scope*
+(defn scope*
   [name path]
   {:name       name
    :path       path
@@ -244,7 +244,7 @@ Usage:
 
 (defn wrap
   "Adds middleware to a scope.
-Every use of wrap will be stacked and later applied when scope is compiled to a handler.
+Every use of wrap will be stacked and later applied when the scope is compiled to a handler.
 Options:
   name:    Useful for before-wrap and after-wrap
   actions: A list of actions names or a filter function.
