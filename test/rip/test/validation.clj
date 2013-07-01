@@ -7,10 +7,10 @@
 (defvalidator user
   (field :name required)
   (field :age
-         (type-of :int)
+         (parse-to :int)
          required
          (validates (min-val 10) {:message "must be 10 at least"}))
-  (field :token (type-of :uuid))
+  (field :token (parse-to :uuid))
   (field :email (validates
                  (fn [email]
                    (boolean

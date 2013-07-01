@@ -3,8 +3,7 @@
   (:import rip.RipException)
   (:use korma.sql.fns
         korma.core
-        korma.db
-        rip.db)
+        korma.db)
   (:require [clojure.string :as st]
             [taoensso.tower :as tower]))
 
@@ -23,7 +22,6 @@
 (defn min-val [min] (fn [val] (>= val min)))
 (defn max-val [max] (fn [val] (<= val max)))
 (defn range-val [min max] (fn [val] (or (>= val min) (<= val max))))
-
 
 (def parsers
   {:int        #(Integer/parseInt %)
@@ -72,22 +70,15 @@
    :constraints []})
 
 (defmacro validator
+  "Create a validator and apply the -> macro to the body."
   [ & body]
   `(-> (validator*)
        ~@body))
 
 (defmacro defvalidator
+  "Define a validator"
   [name & body]
   `(def ~name (validator ~@body)))
-
-(defn validates
-  [val f & [error]]
-  (let [error (fn [value]
-                (make-error
-                 error
-                 value
-                 (tower/t :errors.messages/constraints)))]
-    (update-in val [:constraints] conj [f error])))
 
 (defn field*
   [validator name field]
@@ -101,20 +92,41 @@
    :constraints []})
 
 (defmacro field
+  "Add a field to a validator. Applies the -> macro to de body.
+Usage:
+  (validator
+    (field :name ...))"
   [validator name & body]
   `(field* ~validator ~name
            (-> (make-field ~name)
                ~@body)))
 
+(defn validates
+  "Add a contraint to a validator or a field.
+A error can be provided with a string, a map or a function."
+  [validator pred & [error]]
+  (let [error (fn [value]
+                (make-error
+                 error
+                 value
+                 (tower/t :errors.messages/constraints)))]
+    (update-in validator [:constraints] conj [pred error])))
+
 (defmacro constraint
-  [validator name & body]
+  "Make changes to a validator's field applying the -> macro to the body."
+  [validator field & body]
   `(update-in ~validator
-              [:fields ~name]
+              [:fields ~field]
               (fn [field#]
                 (-> field#
                     ~@body))))
 
-(defn type-of
+(defn parse-to
+  "Set the parsing type of a field.
+The parser can be one of the following keywords:
+  :int, :double, :float, :boolean, :long, :bigint, :bigdecimal, :uuid.
+Optionally a parsing function can be passed.
+If parsing fails, an invalid type error will be added when validated."
   [field type]
   (assoc field
     :parser
@@ -124,10 +136,12 @@
       (fn? type) type))))
 
 (defn required
+  "Make a field required."
   [field]
   (assoc field :required? true))
 
 (defn required-fields
+  "Apply the 'required' function to a set of fields."
   [validator fields]
   (reduce
    (fn [validator field]
@@ -136,26 +150,42 @@
    fields))
 
 (defn assoc-one
-  [validator name validator* & [{:keys [required? item-name]}]]
+  "Associate a nested validator.
+Option map:
+  - required: Set association as required
+Usage:
+  (defvalidator user
+    (assoc-one :address
+      (validator
+        (field :street))))
+  ;; Valid over a map like {:address {:street \"streetname\"}}"
+  [validator name validator* & [{:keys [required]}]]
   (assoc-in
    validator
    [:assocs name]
    {:rel       :one
     :validator validator*
-    :required? (boolean required?)
-    :item-name item-name}))
+    :required? (boolean required)}))
 
 (defn assoc-many
-  [validator name validator* & [{:keys [required? item-name]}]]
+  "Associate a nested validator for a list.
+Option map:
+  - required: Set association as required
+  - item-name: Useful when using clj-simple-form
+Usage:
+  (defvalidator user
+    (assoc-many :documents
+      (validator
+        (field :name))))
+  ;; Valid over a map like {:documents [{:name \"filename\"}]}"
+  [validator name validator* & [{:keys [required item-name]}]]
   (assoc-in
    validator
    [:assocs name]
    {:rel       :many
     :validator validator*
-    :required? (boolean required?)
+    :required? (boolean required)
     :item-name item-name}))
-
-;;
 
 (defn- merge-validations
   [val1 val2 & [multi?]]
@@ -247,7 +277,7 @@
     (let [validation (validate validator value)]
       (assoc validation :value {rel-name (:value validation)}))))
 
-(defn invalid-nested-type-error
+(defn- invalid-nested-type-error
   [rel-name]
   {:valid? false
    :value  {}
@@ -288,6 +318,11 @@
 ;; Validation
 
 (defn validate
+  "Validate a map over a validator definition.
+Returns a map with values:
+  - valid?: True if validation passed, false otherwise.
+  - value:  Resulting value with parser applied.
+  - errors: A list of errors."
   [validator value]
   (let [validation (merge-validations
                     (validate-fields validator value)
@@ -303,6 +338,7 @@
          (:constraints validator)))))
 
 (defmacro if-valid
+  ""
   ([result bindings then]
      `(if-valid
        ~result

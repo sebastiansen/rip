@@ -1,7 +1,6 @@
 (ns rip.test.core
   (:use rip.core
         clojure.test
-        compojure.core
         ring.middleware.params
         ring.middleware.keyword-params
         ring.mock.request))
@@ -12,7 +11,9 @@
   (index [] (path-for :users [:index] {:page 1}))
   (show [id] id)
   (member
-   (PATCH* {:name :activate :path "/activate"} [id] (str id " activated")))
+   (PATCH {:name :activate :path "/activate"}
+          [id]
+          (str id " activated")))
   (nest-resources
    :user
    (resources
@@ -22,11 +23,11 @@
 
 (defscope api
   "/api"
-  (GET* :home [] "api")
-  (POST* {:name :login :path "/login"} [] "login")
+  (GET :home [] "api")
+  (POST {:name :login :path "/login"} [] "login")
   (include
    "/version/:version"
-   (GET* :version [version] version)
+   (GET :version [version] version)
    (make [version] (path-for :api [:make] version)))
   (nest users))
 
@@ -47,18 +48,19 @@
      (handler (update-in req [:params :post] read-string))))
 
 (defresources posts
-  (wrap :response [] wrap-body)
+  (wrap wrap-body {:name :response})
   (index [] [{:post {:title "title"}}])
   (show [id] {:post {:title "title"}})
   (change [id post] post)
-  (GET* {:name :test :path "/test"} []
-        (name *current-action*))
-  (before-wrap :response :exists [:show :change] wrap-exists)
+  (GET {:name :test :path "/test"} []
+       (name *current-action*))
+  (before-wrap :response wrap-exists
+               {:name :exists :actions [:show :change]})
   (after-wrap
    :exists
-   :body-to-params
-   [:change]
-   #(-> % wrap-body-params wrap-keyword-params wrap-params)))
+   #(-> % wrap-body-params wrap-keyword-params wrap-params)
+   {:name :body-to-params
+    :actions [:change]}))
 
 (def app
   (routes-for

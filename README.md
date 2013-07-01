@@ -5,19 +5,16 @@ RIP
 REST in Peace is a library for RESTful APIs built on top of compojure with some korma utilities.
 
 ## Installation
-
+### Not currently on Clojars, clone the project instead and use lein install
 Add the following dependency to your `project.clj` file:
 
 ```clj
 [rip "0.0.10"]
 ```
 
-## Documentation
-
-* [Wiki](https://github.com/acidlabs/rip/wiki)
-* [API Docs](http://acidlabs.github.com/rip)
-
-## Routes
+## Named Routes
+The main idea behind RIP's routing system is a thin layer over compojure that provides named routes to facilitate their construction, allowing more control over a set of routes, 
+and include some reverse routing functionality.
 ```clojure
 ;; Single named route
 (defroute home "/" :get [] "welcome")
@@ -26,26 +23,21 @@ Add the following dependency to your `project.clj` file:
 (defscope api
   "/api"
 
-  ;; Routes can be defined using GET*, POST*, etc.
+  ;; Actions can be defined using GET, POST, etc.
   ;; A name must be provided for wrappers and reverse routing
   ;; GET /api
-  (GET* :home [] "api home")
+  (GET :home [] ...)
 
   ;; Use a map instead of a keyword to specify a path
   ;; GET /api/about
-  (GET* {:name :about :path "/about"} [] "a REST API for the win")
+  (GET {:name :about :path "/about"} [] ...)
 
   ;; Include other actions with a default path
   (include
-   "/paths"
+   "/v1"
 
-   ;; Obtain paths for actions
-   (GET* :paths []
-         (str (path-for :api [:home])
-              " and "
-              (path-for :api [:about]))
-         ;;=> /api and /api/about
-         ))
+   ;; GET /api/v1
+   (GET :v1 [] ...))
 
   ;; Nest other scopes or resources
   (nest
@@ -60,20 +52,14 @@ Add the following dependency to your `project.clj` file:
     ;;   change  => PUT    /:id
     ;;   destroy => DELETE /:id
     ;; Examples:
-    (index [] "users")
-    (change [id] (str "user " id " changed"))
-
-    ;; Obtain links
-    (show [id]
-          (str {:links
-                {:change (link-for :api [:users :change] id)}}))
-    ;; => {:links {:change {:method "PUT" :href "/api/users/{user id}"}}}
+    (index [] ...)
+    (change [id] ...)
 
     ;; Include other actions with default /:id path
     ;; Same as using (include "/:id")
     (member
      ;; PATCH /api/users/:id/activate
-     (PATCH* {:name :activate :path "/activate"} [id] (str "user " id " activated")))
+     (PATCH {:name :activate :path "/activate"} [id] ...))
 
     ;; Nest resources passing the member key
     (nest-resources
@@ -82,30 +68,67 @@ Add the following dependency to your `project.clj` file:
       :documents
 
       ;; GET /api/users/:user-id/documents
-      (index [user-id] (str "documents for user " user-id)))))))
+      (index [user-id] ...))))))
 
-;; Generate handler
-(defroutes app
-  (routes-for
-  ;; Generates a compojure route, and also will bind *routes*
-  ;; for path-for and link-for functions
-    home
-    api))
+;; Reverse Routing
+(defroute paths "/paths" :get
+  []
+  (path-for :home)
+  ;; => "/"
+
+  (path-for :api [:v1])
+  ;; => "/api/v1"
+  
+  (path-for :api [:users :show] 1)
+  ;; => "/api/users/1"
+
+  (path-for :api [:users :documents :index] 1 {:page 10})
+  ;; => "/api/users/1/documents?page=10"
+
+  (link-for :api [:users :show] 1)
+  ;; => {:href "/api/users/1" :method "GET"}
+)
+
+;; Generate a single handler and add a middleware for path-for and link-for usage.
+(routes-for home api paths)
+
+;; path-for and link-for work only in a handler of a route compiled using routes-for.
 ```
-## Validations
+## Wrappers
+Use the wrap function to add middleware to the actions inside a scope. Every use of wrap will be stacked and later applied when the scope is compiled to a handler. 
+If necessary, a before-wrap and after-wrap function are provided for middleware applying order.
+```clojure
+(defresources posts
+  ;; adds a named middleware to all the actions defined in the scope
+  (wrap -wrapper- {:name :response})
+  
+  (show [id] ...)
+  (change [id post] ...)
+  
+  ;; adds middleware before the :response wrapper
+  (before-wrap :response -wrapper-
+               {:name :exists :actions [:show :change]})
+               
+  ;; adds middleware after the :exists wrapper
+  (after-wrap :exists -wrapper-
+              {:name :body-to-params :actions [:change]}))
+```
+## Validators
+The concept of validator is an abstraction for validating clojure's maps. They are intended to represent most of the validation process of an application. 
+They are very extendable, composable and can be used for APIs or web forms validations.
 ```clojure
 ;; Define a validator
 (defvalidator user
   ;; Add a field
   (field :name)
   
-  ;; Specify the type of a field with the type-of function
+  ;; Specify the parser to be applied to a field with the parse-to function.
   ;; In case the parser fails, a type error will be added to the validation.
   ;; Default types :int :double :float :boolean :long :bigint :bigdecimal :uuid
-  (field :age (type-of :int))
+  (field :age (parse-to :int))
   
-  ;; Custom parsers can also be passed to the type-of
-  (field :birthday (type-of #(java.sql.Date/valueOf %)))
+  ;; Custom parsers can also be passed to the parse-to function
+  (field :birthday (parse-to #(java.sql.Date/valueOf %)))
   
   ;; Add constraints like 'required' or custom validations using the validates function
   ;; validates requires a predicate function and an optional message
@@ -128,12 +151,28 @@ Add the following dependency to your `project.clj` file:
   (constraint :name required)
   
   ;; Set required fields
-  (required-fields [:password :password-confirmation]))
-   
-;; Validate using the if-valid  macro to simplify evaluation
-(if-valid (validate user {:email "sebastian@rip.com"})
-  ;; bindings 
-  [value errors]
+  (required-fields [:password :password-confirmation])
+  
+  ;;Nest validators
+  (assoc-one :address
+    (validator 
+      (field :street))
+    {:required true})
+    
+  (assoc-many :documents
+    (validator
+      (field :name))))
+
+;; Validate using the validate function
+(def validation (validate user {:email "sebastian@rip.com"}))
+;; => {:valid? false 
+;;     :value  {:email "sebastian@rip.com"} 
+;;     :errors [{:field :password :message "Can't be blank"}]}
+
+;; Minimize the validation using if-valid for binding and if-else expressions
+(if-valid validation
+  ;; bind a [value errors] vector using any destructuring you want.
+  [{name :name} _]
   ;; if else expressions
   "ok"
   "error")
