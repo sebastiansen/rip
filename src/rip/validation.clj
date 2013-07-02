@@ -197,17 +197,20 @@ Usage:
    :errors (concat (:errors val1) (:errors val2))})
 
 (defn- default-error
-  [error value type]
+  [error value type & [field]]
   (make-error
    error
    value
-   {:message
-    (tower/t
-     (keyword (str "errors.messages/" (name type))))}))
+   (let [error {:message
+                (tower/t
+                 (keyword (str "errors.messages/" (name type))))}]
+     (if field
+       (assoc error :field field)
+       error))))
 
 (defn- validate-field
   [{:keys [required-error invalid-type-error]}
-   {:keys [parser required? required-if constraints] :as field}
+   {:keys [name parser required? required-if constraints] :as field}
    value
    record]
   (if-not (blank? value)
@@ -218,27 +221,21 @@ Usage:
            validation
            (-> validation
                (assoc :valid? false)
-               (update-in [:errors] conj (error value)))))
+               (update-in [:errors] conj (assoc (error value)
+                                           :field name)))))
        {:valid? true :value value :errors []}
        constraints)
       {:valid? false
-       :errors [(default-error invalid-type-error value :invalid-type)]})
+       :errors [(default-error invalid-type-error value :invalid-type name)]})
     (if required?
       (if required-if
         (if (required-if record)
           {:valid? false
-           :errors [(default-error required-error value :required)]}
+           :errors [(default-error required-error value :required name)]}
           {:valid? true})
         {:valid? false
-         :errors [(default-error required-error value :required)]})
+         :errors [(default-error required-error value :required name)]})
       {:valid? true})))
-
-(defn- field-errors
-  [errors field-name]
-  (let [field-name (if *scope*
-                     (keyword (str *scope* "." (name field-name)))
-                     field-name)]
-    (map (fn [v] (assoc v :field field-name)) errors)))
 
 (defn- validate-fields
   [validator value]
@@ -256,7 +253,7 @@ Usage:
              (update-in
               [:errors]
               concat
-              (field-errors errors field-name))))))
+              errors)))))
    {:value {} :valid? true :errors []}
    (:fields validator)))
 
@@ -266,16 +263,29 @@ Usage:
     (str *scope* "." (name rel-name))
     (name rel-name)))
 
+(defn- nest-errors
+  [validation rel-name]
+  (assoc validation
+    :errors
+    (map
+     (fn [error]
+       (let [field (if-let [field (:field error)]
+                     (keyword (str rel-name "." (name field))))]
+         (if field
+           (assoc error :field field)
+           error)))
+     (:errors validation))))
+
 (defn- validate-many
   [validator value rel-name]
-  (let [scope      (make-scope rel-name)
-        [_ validation] (reduce
+  (let [[_ validation] (reduce
                         (fn [[i validation] value]
                           [(inc i)
                            (merge-validations
                             validation
-                            (binding [*scope* (str scope "." i)]
-                              (validate validator value))
+                            (-> (validate validator value)
+                                (nest-errors
+                                 (str (name rel-name) "." i)))
                             true)])
                         [0 {:valid? true :value [] :errors []}]
                         value)]
@@ -283,9 +293,10 @@ Usage:
 
 (defn- validate-one
   [validator value rel-name]
-  (binding [*scope* (make-scope rel-name)]
-    (let [validation (validate validator value)]
-      (assoc validation :value {rel-name (:value validation)}))))
+  (-> (validate validator value)
+      (nest-errors (name rel-name))
+      (update-in [:value]
+                 (fn [value] {rel-name value}))))
 
 (defn- invalid-nested-type-error
   [rel-name]
