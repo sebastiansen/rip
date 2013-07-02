@@ -49,7 +49,8 @@
       :invalid-type "Invalid type"
       :constraints  "Invalid"}}}}})
 
-(defn- blank?
+(defn blank?
+  "Checks if a value is nil or empty if string"
   [value]
   (or (nil? value)
       (and (string? value) (empty? value))))
@@ -137,8 +138,10 @@ If parsing fails, an invalid type error will be added when validated."
 
 (defn required
   "Make a field required."
-  [field]
-  (assoc field :required? true))
+  [field & [{:keys [if]}]]
+  (assoc field
+    :required? true
+    :required-if if))
 
 (defn required-fields
   "Apply the 'required' function to a set of fields."
@@ -204,7 +207,9 @@ Usage:
 
 (defn- validate-field
   [{:keys [required-error invalid-type-error]}
-   {:keys [parser required? constraints] :as field} value]
+   {:keys [parser required? required-if constraints] :as field}
+   value
+   record]
   (if-not (blank? value)
     (if-let [value (if parser (parser value) value)]
       (reduce
@@ -219,8 +224,13 @@ Usage:
       {:valid? false
        :errors [(default-error invalid-type-error value :invalid-type)]})
     (if required?
-      {:valid? false
-       :errors [(default-error required-error value :required)]}
+      (if required-if
+        (if (required-if record)
+          {:valid? false
+           :errors [(default-error required-error value :required)]}
+          {:valid? true})
+        {:valid? false
+         :errors [(default-error required-error value :required)]})
       {:valid? true})))
 
 (defn- field-errors
@@ -236,7 +246,7 @@ Usage:
    (fn [validation [field-name field]]
      (let [field-value (field-name value)
            {:keys [value errors valid?]}
-           (validate-field validator field field-value)]
+           (validate-field validator field field-value value)]
        (if valid?
          (if-not (blank? value)
            (update-in validation [:value] assoc field-name value)

@@ -36,6 +36,17 @@
     (assoc-one :city (validator (field :name required)))))
   (assoc-many :documents (validator (field :name required))))
 
+(defvalidator post
+  (field :id)
+  (field :name (required {:if #(nil? (:id %))})))
+
+(deftest test-if-for-required
+  (are [a b] (= a b)
+       (validate post {:name "" :id 3})
+       {:valid? true, :value {:id 3}, :errors '()}
+       (validate post {:name ""})
+       {:valid? false, :value {}, :errors '({:field :name, :message "Can't be blank"})}))
+
 (deftest test-schema-fields
   (are [a b] (= a b)
        (:valid? (validate user {:name "123" :age "123" :token "1-1-1-1-1"}))
