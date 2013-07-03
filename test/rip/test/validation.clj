@@ -105,8 +105,8 @@
                                 :status "123"
                                 :age "123"
                                 :name "123"}))
-       '({:field :address.city.name :message "Can't be blank"}
-         {:field :address.city :message "code error"})
+       '({:field :address.city :message "code error"}
+         {:field :address.city.name :message "Can't be blank"})
        (:errors (validate user {:documents [{:name "sdfs"} {:name ""}]
                                 :status "123"
                                 :age "123"
