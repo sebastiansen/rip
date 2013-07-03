@@ -33,7 +33,12 @@
    :address
    (validator
     (field :street required)
-    (assoc-one :city (validator (field :name required)))))
+    (assoc-one :city (validator (field :name required)
+                                (field :code)
+                                (validates
+                                 (fn [v]
+                                   (> (:code v) 10))
+                                 "code error")))))
   (assoc-many :documents (validator (field :name required))))
 
 (defvalidator post
@@ -95,11 +100,13 @@
                                 :name "123"}))
        '({:field :address.street :message "Can't be blank"})
        (:errors (validate user {:address {:street "asd"
-                                          :city {:hola "dsfds"}}
+                                          :city {:hola "dsfds"
+                                                 :code 1}}
                                 :status "123"
                                 :age "123"
                                 :name "123"}))
-       '({:field :address.city.name :message "Can't be blank"})
+       '({:field :address.city.name :message "Can't be blank"}
+         {:field :address.city :message "code error"})
        (:errors (validate user {:documents [{:name "sdfs"} {:name ""}]
                                 :status "123"
                                 :age "123"

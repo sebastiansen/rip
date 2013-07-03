@@ -257,23 +257,17 @@ Usage:
    {:value {} :valid? true :errors []}
    (:fields validator)))
 
-(defn- make-scope
-  [rel-name]
-  (if *scope*
-    (str *scope* "." (name rel-name))
-    (name rel-name)))
-
 (defn- nest-errors
   [validation rel-name]
   (assoc validation
     :errors
     (map
      (fn [error]
-       (let [field (if-let [field (:field error)]
-                     (keyword (str rel-name "." (name field))))]
-         (if field
-           (assoc error :field field)
-           error)))
+       (let [field (keyword
+                    (if-let [field (:field error)]
+                      (str rel-name "." (name field))
+                      rel-name))]
+         (assoc error :field field)))
      (:errors validation))))
 
 (defn- validate-many
