@@ -5,7 +5,7 @@
         ring.middleware.keyword-params
         ring.mock.request))
 
-(defroute home "/" :get [] "root")
+(defroute home :get "/" [] "root")
 
 (defresources users
   (index [] (path-for :users [:index] {:page 1}))

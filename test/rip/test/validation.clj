@@ -1,6 +1,5 @@
 (ns rip.test.validation
   (:use rip.validation
-        korma.core
         clojure.test)
   (:require [taoensso.tower :as tower]))
 

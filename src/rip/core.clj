@@ -7,6 +7,7 @@
 
 (def ^:dynamic *current-action* nil)
 (def ^:dynamic *routes* {})
+(declare ^{:dynamic true} *request*)
 
 ;;Routing
 
@@ -16,7 +17,7 @@
   `(fn [request#]
      (let-request [~bindings request#] ~@body)))
 
-(defmacro defh
+(defmacro defhandler
   "Define a handler using the h macro."
   [name bindings & body]
   `(def ~name
@@ -34,8 +35,8 @@
 (defmacro defroute
   "Define a named route using compojure's destructuring for the arguments.
 Usage:
-  (defroute root \"/\" :get [] ...)"
-  [route-name path method args & body]
+  (defroute root :get \"/\" [] ...)"
+  [route-name method path args & body]
   `(def ~route-name
      (route* ~(keyword (name route-name)) ~path ~method (h ~args ~@body))))
 
@@ -369,10 +370,20 @@ Usage:
       (binding [*routes* routes*]
         (handler request)))))
 
+(defn wrap-request
+  "Wrap the request map in the *request* symbol"
+  [h]
+  (fn [r]
+    (binding [*request* r]
+      (h r))))
+
 (defn routes-for
-  "Compiles scopes and defroute definitions into a single compojure's handler, adding a middleware for path-for and link-for usage."
+  "Compiles scopes and defroute definitions into a single compojure's handler.
+Adds a middleware for path-for and link-for usage, and binds the request to *request* for url-for usage."
   [& routes*]
-  (wrap-routes (apply routes (map route-for routes*)) routes*))
+  (-> (apply routes (map route-for routes*))
+      (wrap-routes routes*)
+      wrap-request))
 
 (defn- throwf [msg & args]
   (throw (Exception. (apply format msg args))))
@@ -458,3 +469,23 @@ Usage:
   ;; => \"/users?page=15\""
   [route & args]
   (:href (apply link-for (cons route args))))
+
+(defn url-for
+  "Generate a string with the absolute url for a route.
+If route is a scope, a path of actions must be passed.
+Arguments depend if path contians parameter.
+Usage:
+  (url-for :home)
+  ;; => \"http://{hostname}/\"
+
+  (url-for :users [:show] 123)
+  ;; => \"http://{hostname}/users/123\"
+
+  (url-for :users [:index] {:page 15})
+  ;; => \"http://{hostname}/users?page=15\""
+  [route & args]
+  (str
+   (name (:scheme *request*))
+   "://"
+   (get-in *request* [:headers "host"])
+   (apply path-for route args)))

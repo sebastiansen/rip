@@ -1,9 +1,6 @@
 (ns rip.validation
   "Validation functions for body input and filters for collection queries"
   (:import rip.RipException)
-  (:use korma.sql.fns
-        korma.core
-        korma.db)
   (:require [clojure.string :as st]
             [taoensso.tower :as tower]))
 
@@ -153,42 +150,43 @@ If parsing fails, an invalid type error will be added when validated."
    fields))
 
 (defn assoc-one
-  "Associate a nested validator.
-Option map:
-  - required: Set association as required
+  "Associate a nested validator for a list. Options map will be merged with the association map.
+Some options: :required?
 Usage:
   (defvalidator user
     (assoc-one :address
       (validator
-        (field :street))))
+        (field :street))
+      {:required? true}))
   ;; Valid over a map like {:address {:street \"streetname\"}}"
-  [validator name validator* & [{:keys [required]}]]
+  [validator name validator* & [opts]]
   (assoc-in
    validator
    [:assocs name]
-   {:rel       :one
-    :validator validator*
-    :required? (boolean required)}))
+   (merge {:rel       :one
+           :validator validator*
+           :required? false}
+          opts)))
 
 (defn assoc-many
-  "Associate a nested validator for a list.
-Option map:
-  - required: Set association as required
-  - item-name: Useful when using clj-simple-form
+  "Associate a nested validator for a list. Options map will be merged with the association map.
+Some options: required?
 Usage:
   (defvalidator user
     (assoc-many :documents
       (validator
-        (field :name))))
+        (field :name))
+      {:required? true}))
   ;; Valid over a map like {:documents [{:name \"filename\"}]}"
-  [validator name validator* & [{:keys [required item-name]}]]
+  [validator name validator* & [opts]]
   (assoc-in
    validator
    [:assocs name]
-   {:rel       :many
-    :validator validator*
-    :required? (boolean required)
-    :item-name item-name}))
+   (merge
+    {:rel       :many
+     :validator validator*
+     :required? false}
+    opts)))
 
 (defn- merge-validations
   [val1 val2 & [multi?]]
