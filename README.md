@@ -17,7 +17,7 @@ The main idea behind RIP's routing system is a thin layer over compojure that pr
 and include some reverse routing functionality.
 ```clojure
 ;; Single named route
-(defroute home "/" :get [] "welcome")
+(defroute home :get "/" [] "welcome")
 
 ;; Named nested routes
 (defscope api
@@ -87,12 +87,15 @@ and include some reverse routing functionality.
 
   (link-for :api [:users :show] 1)
   ;; => {:href "/api/users/1" :method "GET"}
+  
+  (url-for :api [:about])
+  ;; => "http://{hostname}/api/about"
 )
 
-;; Generate a single handler and add a middleware for path-for and link-for usage.
+;; Generate a single handler and add a middleware for path-for, link-for and url-for usage.
 (routes-for home api paths)
 
-;; path-for and link-for work only in a handler of a route compiled using routes-for.
+;; path-for, link-for and url-for work only in a handler of a route compiled using routes-for.
 ```
 ## Wrappers
 Use the wrap function to add middleware to the actions inside a scope. Every use of wrap will be stacked and later applied when the scope is compiled to a handler. 
