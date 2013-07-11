@@ -5,11 +5,9 @@ RIP
 REST in Peace is a library for RESTful APIs built on top of compojure with some korma utilities.
 
 ## Installation
-### Not currently on Clojars, clone the project instead and use lein install
 Add the following dependency to your `project.clj` file:
-
 ```clj
-[rip "0.0.10"]
+[sebastiansen/rip "0.0.10"]
 ```
 
 ## Named Routes
