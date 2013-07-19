@@ -64,15 +64,15 @@ Applies the -> macro to the body."
          ~@body)))
 
 (defmacro resources
-  "Create a scope with path \"/{scope-name}\"."
+  "Create a scope with path \"/<res-name>\"."
   [res-name & body]
   `(-> (scope ~res-name ~(str "/" (name res-name)))
        ~@body))
 
 (defmacro defresources
-  "Define a resources."
-  [res & body]
-  `(def ~res (resources ~(keyword (name res)) ~@body)))
+  "Define a scope with path \"/<res-name>\"."
+  [res-name & body]
+  `(def ~res-name (resources ~(keyword (name res-name)) ~@body)))
 
 (defn action
   "Create a nested route for a scope.
@@ -223,7 +223,7 @@ Usage:
 Usage:
   (scope :users
     \"/users\"
-    (nest-with \"/:id\"
+    (nest-with \"/:user-id\"
       (scope :documents
         \"/documents\"
         (GET :index [] ...))))"
@@ -234,7 +234,7 @@ Usage:
     (nest ~@routes)))
 
 (defmacro nest-resources
-  "Same as usig (nest-with \"/:id\" ...) "
+  "Same as using (nest-with \"/:<item-name>-id\" ...) "
   [scope item-name & routes]
   `(nest-with
     ~scope

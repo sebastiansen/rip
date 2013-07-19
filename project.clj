@@ -1,5 +1,5 @@
-(defproject rip "0.0.10"
-  :description "REST in Peace, a framework for RESTful API development."
+(defproject sebastiansen/rip "0.1.0"
+  :description "REST in Peace, a framework for RESTful applications."
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [compojure "1.1.5"]
                  [cheshire "5.0.2"]
@@ -10,6 +10,5 @@
                  [com.twinql.clojure/clj-conneg "1.1.0"]
                  [com.taoensso/tower "1.7.1"]]
   :profiles {:dev {:dependencies
-                   [[http-kit "2.0.1"  :exclusions [org.clojure/clojure]]
-                    [ring-mock "0.1.3" :exclusions [org.clojure/clojure]]]}}
-  :aot [rip.RipException])
+                   [[ring-mock "0.1.3" :exclusions [org.clojure/clojure]]]}}
+  :plugins [[codox "0.6.4"]])

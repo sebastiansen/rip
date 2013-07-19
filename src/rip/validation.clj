@@ -1,5 +1,5 @@
 (ns rip.validation
-  "Validation functions for body input and filters for collection queries"
+  "Functions for validators"
   (:import rip.RipException)
   (:require [clojure.string :as st]
             [taoensso.tower :as tower]))
@@ -150,7 +150,7 @@ If parsing fails, an invalid type error will be added when validated."
    fields))
 
 (defn assoc-one
-  "Associate a nested validator for a list. Options map will be merged with the association map.
+  "Associate a nested validator for a map. Options map will be merged with the association map.
 Some options: :required?
 Usage:
   (defvalidator user
@@ -321,9 +321,9 @@ Usage:
            (-> validation
                (assoc :valid? false)
                (update-in
-                :errors
+                [:errors]
                 conj
-                (default-error required-error value :required)))
+                (default-error required-error value :required name)))
            validation))))
    {:valid? true :value {} :errors []}
    assocs))
@@ -332,10 +332,10 @@ Usage:
 
 (defn validate
   "Validate a map over a validator definition.
-Returns a map with values:
-  - valid?: True if validation passed, false otherwise.
-  - value:  Resulting value with parser applied.
-  - errors: A list of errors."
+  Returns a map with values:
+    - valid?: True if validation passed, false otherwise.
+    - value:  Resulting value with parser applied.
+    - errors: A list of errors."
   [validator value]
   (let [validation (merge-validations
                     (validate-fields validator value)
@@ -351,7 +351,13 @@ Returns a map with values:
          (:constraints validator)))))
 
 (defmacro if-valid
-  ""
+  "Simplifies evaluation of a validation result,
+  with bindings [valid-value errors] and if-else expressions
+  Usage:
+    (if-valid (validate <validator> <value>)
+      [valid-value errors]
+      then
+      else)"
   ([result bindings then]
      `(if-valid
        ~result

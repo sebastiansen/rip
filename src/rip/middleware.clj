@@ -167,14 +167,6 @@
     (fn [request]
       (handler request))))
 
-;; (defn wrap-body-validation
-;;   [handler validator]
-;;   (fn [request]
-;;     (let [{:keys [valid? input output]} (validator (get-input request))]
-;;       (if valid?
-;;         (handler (assoc-input request output))
-;;         (entity-response input 400 request)))))
-
 (defmacro wrap-response
   [handler bindings & body]
   `(fn [request#]
@@ -187,13 +179,6 @@
     (if (f request)
       (handler request)
       response)))
-
-(defn wrap-exists?
-  [handler exists-handler key]
-  (fn [request]
-    (if-let [entity (exists-handler request)]
-      (handler (assoc-globals request {key entity}))
-      (*responses* :not-found))))
 
 (defn wrap-parse-params
   [handler parsers]
@@ -209,27 +194,27 @@
         (.printStackTrace e)
         (*responses* :bad-request)))))
 
-(defn wrap-pagination
-  [handler get-total path & [page-size]]
-  (h [page per_page :as req]
-     (let [total       (get-total req)
-           page        (or page 1)
-           page-size   (or per_page page-size 10)
-           total-pages (int (Math/ceil (/ total page-size)))
-           page-path   (fn [page]
-                         (conj path {:page page :per_page page-size}))]
-       (handler
-        (assoc-globals
-         req
-         {:limit  page-size
-          :offset (* (dec page) page-size)
-          :links  (merge
-                   (if (> page 1)
-                     {:first (page-path 1)
-                      :prev  (page-path (dec page))})
-                   (if (< page total-pages)
-                     {:next (page-path (inc page))
-                      :last (page-path total-pages)}))})))))
+;; (defn wrap-pagination
+;;   [handler get-total path & [page-size]]
+;;   (h [page per_page :as req]
+;;      (let [total       (get-total req)
+;;            page        (or page 1)
+;;            page-size   (or per_page page-size 10)
+;;            total-pages (int (Math/ceil (/ total page-size)))
+;;            page-path   (fn [page]
+;;                          (conj path {:page page :per_page page-size}))]
+;;        (handler
+;;         (assoc-globals
+;;          req
+;;          {:limit  page-size
+;;           :offset (* (dec page) page-size)
+;;           :links  (merge
+;;                    (if (> page 1)
+;;                      {:first (page-path 1)
+;;                       :prev  (page-path (dec page))})
+;;                    (if (< page total-pages)
+;;                      {:next (page-path (inc page))
+;;                       :last (page-path total-pages)}))})))))
 
 (defn wrap-fn
   [handler f]
@@ -238,13 +223,3 @@
 (defmacro wrap-macro
   [handler macro & args]
   `(fn [request#] (~macro (~handler request#) ~@args)))
-
-;; (defn wrap-collection
-;;   [res action path get-total & [page-size]]
-;;   (-> res
-;;       (wrap [action]
-;;             (wrap-fn (fn [u] {:users u}))
-;;             (wrap-pagination get-total path (or page-size 10))
-;;             (wrap-parse-params
-;;              {:page     (parser long)
-;;               :per_page (parser long)}))))

@@ -42,14 +42,19 @@
 
 (defvalidator post
   (field :id)
-  (field :name (required {:if #(nil? (:id %))})))
+  (field :name (required {:if #(nil? (:id %))}))
+  (assoc-one
+   :user
+   (validator
+    (field :name))
+   {:required? true}))
 
 (deftest test-if-for-required
   (are [a b] (= a b)
-       (validate post {:name "" :id 3})
-       {:valid? true, :value {:id 3}, :errors '()}
-       (validate post {:name ""})
-       {:valid? false, :value {}, :errors '({:field :name, :message "Can't be blank"})}))
+       (validate post {:name "" :id 3 :user {:name "user"}})
+       {:valid? true, :value {:id 3 :user {:name "user"}}, :errors '()}
+       (validate post {:name "" :user {:name "user"}})
+       {:valid? false, :value {:user {:name "user"}}, :errors '({:field :name, :message "Can't be blank"})}))
 
 (deftest test-schema-fields
   (are [a b] (= a b)
@@ -110,7 +115,11 @@
                                 :status "123"
                                 :age "123"
                                 :name "123"}))
-       '({:field :documents.1.name :message "Can't be blank"})))
+       '({:field :documents.1.name :message "Can't be blank"})
+
+       (:errors (validate post {:id 1
+                                :name "123"}))
+       '({:field :user :message "Can't be blank"})))
 
 ;; (deftest test-other-validations
 ;;   (are [a b] (= a b)
