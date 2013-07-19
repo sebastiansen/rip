@@ -9,8 +9,12 @@ Add the following dependency to your `project.clj` file:
 ```clj
 [sebastiansen/rip "0.1.0"]
 ```
+## Documentation
+
+* [API Docs](http://sebastiansen.github.com/rip)
 
 ## Named Routes
+
 The main idea behind RIP's routing system is a thin layer over compojure that provides named routes to facilitate their construction, allowing more control over a set of routes, 
 and also include some reverse routing functionality.
 ```clojure
@@ -96,6 +100,7 @@ and also include some reverse routing functionality.
 ;; path-for, link-for and url-for work only in a handler of a route compiled using routes-for.
 ```
 ## Wrappers
+
 Use the wrap function to add middleware to the actions inside a scope. A wrapper function receives the handler and returns a function that receives the request. Every use of wrap will be stacked and later applied when the scope is compiled to a handler. 
 If necessary, a before-wrap and after-wrap function are provided for middleware applying order.
 ```clojure
@@ -115,6 +120,7 @@ If necessary, a before-wrap and after-wrap function are provided for middleware 
               {:name :body-to-params :actions [:change]}))
 ```
 ## Validators
+
 The concept of validator is an abstraction for validating clojure's maps. They are intended to represent most of the validation process of an application. 
 They are very extendable, composable and can be used for APIs or web forms validations.
 ```clojure
