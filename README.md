@@ -2,7 +2,7 @@ RIP
 ===
 [![Build Status](https://travis-ci.org/sebastiansen/rip.png?branch=master)](https://travis-ci.org/sebastiansen/rip)
 
-REST in Peace is a library for RESTful APIs built on top of compojure with some korma utilities.
+REST in Peace is a library for RESTful applications.
 
 ## Installation
 Add the following dependency to your `project.clj` file:
@@ -12,7 +12,7 @@ Add the following dependency to your `project.clj` file:
 
 ## Named Routes
 The main idea behind RIP's routing system is a thin layer over compojure that provides named routes to facilitate their construction, allowing more control over a set of routes, 
-and include some reverse routing functionality.
+and also include some reverse routing functionality.
 ```clojure
 ;; Single named route
 (defroute home :get "/" [] "welcome")
@@ -32,37 +32,37 @@ and include some reverse routing functionality.
 
   ;; Include other actions with a default path
   (include
-   "/v1"
+    "/v1"
 
-   ;; GET /api/v1
-   (GET :v1 [] ...))
+    ;; GET /api/v1
+    (GET :v1 [] ...))
 
   ;; Nest other scopes or resources
   (nest
 
-   ;; Resources are scopes with path "/{resource-name}", check also 'defresource'
-   (resources
-    :users
-    ;; Rip includes some default actions like:
-    ;;   index   => GET    /
-    ;;   make    => POST   /
-    ;;   show    => GET    /:id
-    ;;   change  => PUT    /:id
-    ;;   destroy => DELETE /:id
-    ;; Examples:
-    (index [] ...)
-    (change [id] ...)
+    ;; Resources are scopes with path "/{resource-name}", check also 'defresource'
+    (resources
+      :users
+      ;; Rip includes some default actions like:
+      ;;   index   => GET    /
+      ;;   make    => POST   /
+      ;;   show    => GET    /:id
+      ;;   change  => PUT    /:id
+      ;;   destroy => DELETE /:id
+      ;; Examples:
+      (index [] ...)
+      (change [id] ...)
 
-    ;; Include other actions with default /:id path
-    ;; Same as using (include "/:id")
-    (member
-     ;; PATCH /api/users/:id/activate
-     (PATCH {:name :activate :path "/activate"} [id] ...))
+      ;; Include other actions with default /:id path
+      ;; Same as using (include "/:id")
+      (member
+       ;; PATCH /api/users/:id/activate
+       (PATCH {:name :activate :path "/activate"} [id] ...))
 
-    ;; Nest resources passing the member key
-    (nest-resources
-     :user
-     (resources
+  ;; Nest resources passing the member key
+  (nest-resources
+    :user
+    (resources
       :documents
 
       ;; GET /api/users/:user-id/documents
@@ -96,7 +96,7 @@ and include some reverse routing functionality.
 ;; path-for, link-for and url-for work only in a handler of a route compiled using routes-for.
 ```
 ## Wrappers
-Use the wrap function to add middleware to the actions inside a scope. Every use of wrap will be stacked and later applied when the scope is compiled to a handler. 
+Use the wrap function to add middleware to the actions inside a scope. A wrapper function receives the handler and returns a function that receives the request. Every use of wrap will be stacked and later applied when the scope is compiled to a handler. 
 If necessary, a before-wrap and after-wrap function are provided for middleware applying order.
 ```clojure
 (defresources posts
@@ -172,8 +172,8 @@ They are very extendable, composable and can be used for APIs or web forms valid
 
 ;; Minimize the validation using if-valid for binding and if-else expressions
 (if-valid validation
-  ;; bind a [value errors] vector using any destructuring you want.
-  [{name :name} _]
+  ;; bind a vector  of the form [value errors].
+  [{name :name} err]
   ;; if else expressions
   "ok"
   "error")
