@@ -18,6 +18,8 @@ Add the following dependency to your `project.clj` file:
 The main idea behind RIP's routing system is a thin layer over compojure that provides named routes to facilitate their construction, allowing more control over a set of routes, 
 and also include some reverse routing functionality.
 ```clojure
+(use 'rip.core)
+
 ;; Single named route
 (defroute home :get "/" [] "welcome")
 
@@ -104,6 +106,8 @@ and also include some reverse routing functionality.
 Use the wrap function to add middleware to the actions inside a scope. A wrapper function receives the handler and returns a function that receives the request. Every use of wrap will be stacked and later applied when the scope is compiled to a handler. 
 If necessary, a before-wrap and after-wrap function are provided for middleware applying order.
 ```clojure
+(use 'rip.core)
+
 (defresources posts
   ;; adds a named middleware to all the actions defined in the scope
   (wrap -wrapper- {:name :response})
@@ -124,6 +128,8 @@ If necessary, a before-wrap and after-wrap function are provided for middleware 
 The concept of validator is an abstraction for validating clojure's maps. They are intended to represent most of the validation process of an application. 
 They are very extendable, composable and can be used for APIs or web forms validations.
 ```clojure
+(use 'rip.validation)
+
 ;; Define a validator
 (defvalidator user
   ;; Add a field
