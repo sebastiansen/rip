@@ -1,6 +1,5 @@
 (ns rip.validation
   "Functions for validators"
-  (:import rip.RipException)
   (:require [clojure.string :as st]
             [taoensso.tower :as tower]))
 
