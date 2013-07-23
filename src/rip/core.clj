@@ -247,15 +247,16 @@ Usage:
   "Adds middleware to a scope.
 Every use of wrap will be stacked and later applied when the scope is compiled to a handler.
 Options:
-  name:    Useful for before-wrap and after-wrap
-  actions: A list of actions names or a filter function.
+  name:   Useful for before-wrap and after-wrap
+  only:   Middleware will only be applied to the giving list of actions.
+  except: A list of actions that will be excluded from the middlware
 Usage:
   (resources :users
     (wrap wrap-json)
     (wrap (fn [handler] (fn [request] ...))
-          {:name :exists :actions [:show :change :destroy]}))"
-  [scope wrapper & [{:keys [name actions]}]]
-  (update-in scope [:middleware] conj [name actions wrapper]))
+          {:name :exists :only [:show :change :destroy]}))"
+  [scope wrapper & [opts]]
+  (update-in scope [:middleware] conj [(:name opts) opts wrapper]))
 
 (defn before-wrap
   "Similar to wrap, but it adds middleware to a scope before a specific wrap.
@@ -263,13 +264,13 @@ Usage:
   (resources :users
    (wrap wrap-json {:name :json})
    (before-wrap :json wrap-auth))"
-  [scope before wrapper & [{:keys [name actions]}]]
+  [scope before wrapper & [opts]]
   (assoc scope
     :middleware
     (reduce
      (fn [middlewares [before-name :as middleware]]
        (if (= before-name before)
-         (conj middlewares [name actions wrapper] middleware)
+         (conj middlewares [(:name opts) opts wrapper] middleware)
          (conj middlewares middleware)))
      []
      (:middleware scope))))
@@ -281,26 +282,16 @@ Usage:
    (wrap wrap-json {:name :json})
    (wrap (fn [handler] (fn [request] ...)))
    (after-wrap :json wrap-auth))"
-  [scope after wrapper & [{:keys [name actions]}]]
+  [scope after wrapper & [opts]]
   (assoc scope
     :middleware
     (reduce
      (fn [middlewares [after-name :as middleware]]
        (if (= after-name after)
-         (conj middlewares middleware [name actions wrapper])
+         (conj middlewares middleware [(:name opts) opts wrapper])
          (conj middlewares middleware)))
      []
      (:middleware scope))))
-
-(defn- select-actions
-  [{:keys [except only]} actions]
-  (if except
-    (let [except (set except)]
-      (filter (fn [a] (not (contains? except a))) actions))
-    (if only
-      (let [except (set except)]
-        (filter (fn [a] (contains? except a)) actions))
-      (throw (Exception. "option map must contain :only or :exception")))))
 
 (defn- add-current-action-middleware
   [scope]
@@ -315,23 +306,25 @@ Usage:
    scope
    (:routes scope)))
 
+(defn- select-actions
+  [{:keys [except only]} actions]
+  (if except
+    (let [except (set except)]
+      (filter (fn [a] (not (contains? except a))) actions))
+    (if only
+      (let [only (set only)]
+        (filter (fn [a] (contains? only a)) actions))
+      actions)))
+
 (defn- add-middleware
   [scope]
   (reduce
-   (fn [scope [_ actions middleware]]
+   (fn [scope [_ opts middleware]]
      (reduce
       (fn [scope action]
         (update-in scope [:routes action :handler] middleware))
       scope
-      (if (empty? actions)
-        (keys (:routes scope))
-        (cond
-         (map? actions)
-         (select-actions actions (keys (:routes scope)))
-         (fn? actions)
-         (map first (filter (comp actions second) (:routes scope)))
-         (sequential? actions)
-         actions))))
+      (select-actions opts (keys (:routes scope)))))
    scope
    (reverse (:middleware scope))))
 

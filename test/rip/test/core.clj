@@ -55,12 +55,12 @@
   (GET {:name :test :path "/test"} []
        (name *current-action*))
   (before-wrap :response wrap-exists
-               {:name :exists :actions [:show :change]})
+               {:name :exists :except [:index :test]})
   (after-wrap
    :exists
    #(-> % wrap-body-params wrap-keyword-params wrap-params)
    {:name :body-to-params
-    :actions [:change]}))
+    :only [:change]}))
 
 (def app
   (routes-for
