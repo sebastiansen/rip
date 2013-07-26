@@ -19,20 +19,26 @@
 (defn max-val [max] (fn [val] (<= val max)))
 (defn range-val [min max] (fn [val] (or (>= val min) (<= val max))))
 
+(defn blank?
+  "Checks if a value is nil or empty if string"
+  [value]
+  (or (nil? value)
+      (and (string? value) (empty? value))))
+
 (def parsers
-  {:int        #(Integer/parseInt %)
-   :double     #(Double/parseDouble %)
-   :float      #(Float/parseFloat %)
-   :boolean    #(Boolean/parseBoolean %)
-   :long       #(Long/parseLong %)
-   :bigint     #(BigInteger. %)
-   :bigdecimal #(BigDecimal. %)
-   :uuid       #(java.util.UUID/fromString %)})
+  {:int        #(if % (Integer/parseInt (str %)))
+   :double     #(if % (Double/parseDouble (str %)))
+   :float      #(if % (Float/parseFloat (str %)))
+   :boolean    #(Boolean/parseBoolean (str %))
+   :long       #(if % (Long/parseLong (str %)))
+   :bigint     #(if % (BigInteger. (str %)))
+   :bigdecimal #(if % (BigDecimal. (str %)))
+   :uuid       #(if % (java.util.UUID/fromString (str %)))})
 
 (defn- make-parser
   [parser]
   (fn [value]
-    (try (parser (str value)) (catch Exception e nil))))
+    (try (parser value) (catch Exception e :error))))
 
 ;; Validators
 
@@ -44,12 +50,6 @@
      {:required     "Can't be blank"
       :invalid-type "Invalid type"
       :constraints  "Invalid"}}}}})
-
-(defn blank?
-  "Checks if a value is nil or empty if string"
-  [value]
-  (or (nil? value)
-      (and (string? value) (empty? value))))
 
 (defn- make-error
   [error value default]
@@ -210,29 +210,30 @@ Usage:
    {:keys [name parser required? required-if constraints] :as field}
    value
    record]
-  (if-not (blank? value)
-    (if-let [value (if parser (parser value) value)]
-      (reduce
-       (fn [validation [pred error]]
-         (if (pred value)
-           validation
-           (-> validation
-               (assoc :valid? false)
-               (update-in [:errors] conj (assoc (error value)
-                                           :field name)))))
-       {:valid? true :value value :errors []}
-       constraints)
+  (let [parsed-value (if parser (parser value) value)]
+    (if (= parsed-value :error)
       {:valid? false
-       :errors [(default-error invalid-type-error value :invalid-type name)]})
-    (if required?
-      (if required-if
-        (if (required-if record)
-          {:valid? false
-           :errors [(default-error required-error value :required name)]}
-          {:valid? true})
-        {:valid? false
-         :errors [(default-error required-error value :required name)]})
-      {:valid? true})))
+       :errors [(default-error invalid-type-error value :invalid-type name)]}
+      (if (nil? value)
+        (if required?
+          (if required-if
+            (if (required-if record)
+              {:valid? false
+               :errors [(default-error required-error value :required name)]}
+              {:valid? true :value parsed-value})
+            {:valid? false
+             :errors [(default-error required-error value :required name)]})
+          {:valid? true :value parsed-value})
+        (reduce
+         (fn [validation [pred error]]
+           (if (pred parsed-value)
+             validation
+             (-> validation
+                 (assoc :valid? false)
+                 (update-in [:errors] conj (assoc (error parsed-value)
+                                             :field name)))))
+         {:valid? true :value parsed-value :errors []}
+         constraints)))))
 
 (defn- validate-fields
   [validator value]

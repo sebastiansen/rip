@@ -42,6 +42,7 @@
 
 (defvalidator post
   (field :id)
+  (field :status (parse-to :boolean))
   (field :name (required {:if #(nil? (:id %))}))
   (assoc-one
    :user
@@ -51,10 +52,19 @@
 
 (deftest test-if-for-required
   (are [a b] (= a b)
-       (validate post {:name "" :id 3 :user {:name "user"}})
-       {:valid? true, :value {:id 3 :user {:name "user"}}, :errors '()}
-       (validate post {:name "" :user {:name "user"}})
-       {:valid? false, :value {:user {:name "user"}}, :errors '({:field :name, :message "Can't be blank"})}))
+       (validate post {:id 3 :user {:name "user"}})
+       {:valid? true, :value {:status false :id 3 :user {:name "user"}}, :errors '()}
+       (validate post {:user {:name "user"}})
+       {:valid? false, :value {:status false :user {:name "user"}}, :errors '({:field :name, :message "Can't be blank"})}))
+
+(deftest test-boolean
+  (are [a b] (= a b)
+       (get-in (validate post {:status "true" :id 3 :user {:name "user"}}) [:value :status])
+       true
+       (get-in (validate post {:id 3 :user {:name "user"}}) [:value :status])
+       false
+       (get-in (validate post {:status "false" :id 3 :user {:name "user"}}) [:value :status])
+       false))
 
 (deftest test-schema-fields
   (are [a b] (= a b)
@@ -98,7 +108,7 @@
 
 (deftest test-nested
   (are [a b] (= a b)
-       (:errors (validate user {:address {:street ""}
+       (:errors (validate user {:address {:boom ""}
                                 :status "123"
                                 :age "123"
                                 :name "123"}))
@@ -111,7 +121,7 @@
                                 :name "123"}))
        '({:field :address.city :message "code error"}
          {:field :address.city.name :message "Can't be blank"})
-       (:errors (validate user {:documents [{:name "sdfs"} {:name ""}]
+       (:errors (validate user {:documents [{:name "sdfs"} {:boom ""}]
                                 :status "123"
                                 :age "123"
                                 :name "123"}))
