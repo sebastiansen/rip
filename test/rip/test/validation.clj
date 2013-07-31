@@ -52,8 +52,8 @@
 
 (deftest test-if-for-required
   (are [a b] (= a b)
-       (validate post {:id 3 :user {:name "user"}})
-       {:valid? true, :value {:status false :id 3 :user {:name "user"}}, :errors '()}
+       (validate post {:id 3 :user {:name ""}})
+       {:valid? true, :value {:status false :id 3 :user {:name ""}}, :errors '()}
        (validate post {:user {:name "user"}})
        {:valid? false, :value {:status false :user {:name "user"}}, :errors '({:field :name, :message "Can't be blank"})}))
 

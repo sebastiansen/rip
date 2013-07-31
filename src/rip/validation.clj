@@ -243,9 +243,9 @@ Usage:
            {:keys [value errors valid?]}
            (validate-field validator field field-value value)]
        (if valid?
-         (if-not (blank? value)
-           (update-in validation [:value] assoc field-name value)
-           validation)
+         (if (nil? value)
+           validation
+           (update-in validation [:value] assoc field-name value))
          (-> validation
              (assoc :valid? false)
              (update-in
