@@ -60,7 +60,7 @@ and also include some reverse routing functionality.
       (change [id] ...)
 
       ;; Include other actions with default /:id path
-      ;; Same as using (include "/:id")
+      ;; Same as using (include "/:id" ...)
       (member
        ;; PATCH /api/users/:id/activate
        (PATCH {:name :activate :path "/activate"} [id] ...))
@@ -75,7 +75,7 @@ and also include some reverse routing functionality.
       (index [user-id] ...))))))
 
 ;; Reverse Routing
-(defroute paths "/paths" :get
+(defroute paths :get "/paths"
   []
   (path-for :home)
   ;; => "/"
@@ -110,18 +110,16 @@ If necessary, a before-wrap and after-wrap function are provided for middleware 
 
 (defresources posts
   ;; adds a named middleware to all the actions defined in the scope
-  (wrap -wrapper- {:name :response})
+  (wrap -wrapper- {:name :wrap1})
   
   (show [id] ...)
   (change [id post] ...)
   
   ;; adds middleware before the :response wrapper
-  (before-wrap :response -wrapper-
-               {:name :exists :actions [:show :change]})
+  (before-wrap :wrap1 -wrapper- {:name :wrap2 :only [:show :change]})
                
-  ;; adds middleware after the :exists wrapper
-  (after-wrap :exists -wrapper-
-              {:name :body-to-params :actions [:change]}))
+  ;; adds middleware after the :exists? wrapper
+  (after-wrap :wrap2 -wrapper- {:except [:show]}))
 ```
 ## Validators
 
@@ -141,7 +139,7 @@ They are very extendable, composable and can be used for APIs or web forms valid
   (field :age (parse-to :int))
   
   ;; Custom parsers can also be passed to the parse-to function
-  (field :birthday (parse-to #(java.sql.Date/valueOf %)))
+  (field :birthday (parse-to #(if % (java.sql.Date/valueOf %))))
   
   ;; Add constraints like 'required' or custom validations using the validates function
   ;; validates requires a predicate function and an optional message
@@ -182,7 +180,7 @@ They are very extendable, composable and can be used for APIs or web forms valid
 ;;     :value  {:email "sebastian@rip.com"} 
 ;;     :errors [{:field :password :message "Can't be blank"}]}
 
-;; Minimize the validation using if-valid for binding and if-else expressions
+;; Use if-valid for binding and if-else expressions
 (if-valid validation
   ;; bind a vector  of the form [value errors].
   [{name :name} err]
