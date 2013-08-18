@@ -103,8 +103,8 @@ and also include some reverse routing functionality.
 ```
 ## Wrappers
 
-Use the wrap function to add middleware to the actions inside a scope. A wrapper function receives the handler and returns a function that receives the request. Every use of wrap will be stacked and later applied when the scope is compiled to a handler. 
-If necessary, a before-wrap and after-wrap function are provided for middleware applying order.
+Use the wrap function to add middleware to the actions inside a scope. Wrap takes a wrapping function similiar to ring's middleware, this function only takes a handler and returns another handler. Every use of wrap will be stacked and later applied when the scope is compiled to a handler. 
+If necessary, a before-wrap and after-wrap functions are provided for middleware applying order.
 ```clojure
 (use 'rip.core)
 
