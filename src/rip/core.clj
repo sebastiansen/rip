@@ -142,7 +142,7 @@ Options can be a keyword for the name of the action or a map with :name and :pat
 Wraps a handler using the h macro.
 Options can be a keyword for the name of the action or a map with :name and :path"
   [scope opts args & body]
-  `(action ~scope ~opts :any (h ~args ~@body)))
+  `(action ~scope ~opts nil (h ~args ~@body)))
 
 (defmacro index
   "Simplifies (GET :index ...)"
