@@ -7,7 +7,7 @@ REST in Peace is a library for RESTful applications.
 ## Installation
 Add the following dependency to your `project.clj` file:
 ```clj
-[sebastiansen/rip "0.1.0"]
+[rip "0.1.1"]
 ```
 ## Documentation
 
